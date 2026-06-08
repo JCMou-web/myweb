@@ -1,0 +1,513 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>通讯研发人力 Forecast 分析报告</title>
+<script src="https://cdn.bootcdn.net/ajax/libs/echarts/5.5.0/echarts.min.js" 
+  onerror="var s=document.createElement('script');s.src='https://cdn.jsdelivr.net/npm/echarts@5.5.0/dist/echarts.min.js';document.head.appendChild(s);"></script>
+<style>
+:root {--bg:#f5f6fa;--card:#fff;--text:#1e293b;--text2:#64748b;--blue:#3b82f6;--green:#10b981;--orange:#f59e0b;--red:#ef4444;--purple:#8b5cf6;--cyan:#06b6d4;--border:#e2e8f0;}
+*{margin:0;padding:0;box-sizing:border-box;}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','PingFang SC','Microsoft YaHei',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;}
+.header{background:linear-gradient(135deg,#0f172a 0%,#1e3a5f 50%,#312e81 100%);color:#fff;padding:28px 36px;}
+.header h1{font-size:26px;font-weight:700;margin-bottom:4px;}
+.header .sub{font-size:14px;opacity:.8;}
+.summary-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:16px;padding:24px 36px;}
+.summary-card{background:var(--card);border-radius:12px;padding:20px 24px;box-shadow:0 2px 8px rgba(0,0,0,.05);border-left:4px solid var(--blue);}
+.summary-card.avg{border-left-color:var(--green);}
+.summary-card.peak{border-left-color:var(--orange);}
+.summary-card.low{border-left-color:var(--purple);}
+.summary-card .label{font-size:13px;color:var(--text2);margin-bottom:6px;}
+.summary-card .value{font-size:28px;font-weight:700;}
+.summary-card .sub{font-size:12px;color:var(--text2);margin-top:4px;}
+.content{padding:0 36px 36px;}
+.chart-row{display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-bottom:20px;}
+.chart-row.full{grid-template-columns:1fr;}
+.chart-row.three{grid-template-columns:1fr 1fr 1fr;}
+.card{background:var(--card);border-radius:12px;padding:24px;box-shadow:0 2px 8px rgba(0,0,0,.05);}
+.card h3{font-size:16px;font-weight:600;margin-bottom:16px;display:flex;align-items:center;gap:8px;}
+.chart{width:100%;height:380px;}
+.chart.lg{height:450px;}
+.chart.sm{height:300px;}
+table{width:100%;border-collapse:collapse;font-size:13px;}
+th,td{padding:8px 12px;text-align:center;border-bottom:1px solid var(--border);}
+th{background:#f8fafc;font-weight:600;color:var(--text2);position:sticky;top:0;white-space:nowrap;}
+th:first-child,td:first-child{text-align:left;}
+tbody tr:hover{background:#f1f5f9;}
+tbody tr.total{font-weight:700;background:#eff6ff;}
+.neg{color:var(--green);}
+.tag{display:inline-block;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:600;}
+.tag.top{background:#fee2e2;color:#dc2626;}
+.tag.mid{background:#fef3c7;color:#d97706;}
+.tag.low{background:#dbeafe;color:#2563eb;}
+.section-title{font-size:18px;font-weight:700;margin:28px 0 16px;padding-bottom:8px;border-bottom:2px solid var(--blue);}
+.heatmap-cell{font-size:11px;padding:4px 6px;text-align:center;border-radius:2px;}
+.rank-bar{display:flex;align-items:center;gap:8px;margin:4px 0;}
+.rank-bar .name{width:120px;font-size:12px;text-align:right;flex-shrink:0;}
+.rank-bar .bar{height:22px;border-radius:4px;background:var(--blue);display:flex;align-items:center;padding:0 8px;color:#fff;font-size:11px;font-weight:600;min-width:40px;transition:width .3s;}
+.rank-bar .val{font-size:12px;color:var(--text2);margin-left:4px;}
+.footer{text-align:center;padding:20px;color:var(--text2);font-size:12px;}
+.tabs{display:flex;gap:0;padding:0 36px;margin-top:-1px;}
+.tab-btn{padding:10px 24px;border:1px solid var(--border);border-top:none;background:#fff;color:var(--text2);cursor:pointer;font-size:14px;font-weight:500;border-radius:0 0 8px 8px;transition:all .2s;}
+.tab-btn:first-child{border-radius:0 0 0 8px;}
+.tab-btn:last-child{border-radius:0 0 8px 0;}
+.tab-btn:hover{background:#f1f5f9;color:var(--text);}
+.tab-btn.active{background:var(--blue);color:#fff;border-color:var(--blue);}
+.tab-badge{display:inline-block;margin-left:6px;padding:1px 8px;border-radius:10px;font-size:11px;background:rgba(255,255,255,.25);}
+.tab-btn.active .tab-badge{background:rgba(255,255,255,.3);}
+@media(max-width:900px){.chart-row,.chart-row.three{grid-template-columns:1fr;}.summary-grid{grid-template-columns:1fr 1fr;}}
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>📊 通讯研发人力 Forecast 分析报告</h1>
+  <div class="sub">分析周期：2026年1月 - 12月（全年） &nbsp;|&nbsp; 数据来源：BY实际项目&组织（0608） / H2新工时 / 新增H2新工时 &nbsp;|&nbsp; 单位：每月 mm 即为当月所需 HC；月均 mm 即为全年平均 HC</div>
+</div>
+
+<div class="tabs" id="tabs">
+  <button class="tab-btn active" onclick="switchTab('all')">📡 通讯侧整体 <span class="tab-badge">手机+平板</span></button>
+  <button class="tab-btn" onclick="switchTab('phone')">📱 手机</button>
+  <button class="tab-btn" onclick="switchTab('pad')">📋 平板</button>
+</div>
+
+<div class="summary-grid" id="summary"></div>
+
+<div class="content">
+  <div class="section-title">📈 一、整体趋势</div>
+  <div class="chart-row">
+    <div class="card"><h3>各中心月度 Forecast 趋势（全年）</h3><div class="chart lg" id="c1"></div></div>
+  </div>
+  <div class="chart-row full">
+    <div class="card"><h3>月度总量变化趋势</h3><div class="chart" id="c2"></div></div>
+  </div>
+
+  <div class="section-title">📋 二、部门排名</div>
+  <div class="chart-row">
+    <div class="card"><h3>部门全年平均 HC TOP15</h3><div id="c4" style="padding:8px 0;"></div></div>
+    <div class="card"><h3>各中心月度 Forecast 明细表</h3><div style="max-height:420px;overflow:auto;"><table id="t1"></table></div></div>
+  </div>
+
+  <div class="section-title">🔍 三、部门月度明细</div>
+  <div class="chart-row full">
+    <div class="card"><h3>全部部门月度 Forecast</h3><div style="max-height:520px;overflow:auto;"><table id="t2"></table></div></div>
+  </div>
+
+  <div class="section-title" style="border-bottom-color:var(--red);">⚠️ 四、人力缺口分析（在职 vs Forecast）</div>
+  <div class="summary-grid" id="gapSummary"></div>
+  <div class="chart-row">
+    <div class="card"><h3>各部门在职人数 vs Forecast 峰值 HC 缺口</h3><div class="chart lg" id="c5"></div></div>
+  </div>
+  <div class="chart-row full">
+    <div class="card"><h3>人力缺口明细表（在职人数 vs Forecast HC）</h3><div style="max-height:520px;overflow:auto;"><table id="t3"></table></div></div>
+  </div>
+</div>
+
+<div class="footer">
+通讯研发人力 Forecast 分析报告 &copy; 2026<br><br>
+📁 <b>数据源文件清单</b><br>
+<table style="margin:8px auto;font-size:12px;color:var(--text2);border-collapse:collapse;">
+<tr style="background:#f8fafc;"><th style="padding:4px 12px;text-align:left;">用途</th><th style="padding:4px 12px;text-align:left;">文件名</th><th style="padding:4px 12px;text-align:left;">说明</th></tr>
+<tr><td style="padding:4px 12px;">Base 已有项目（手机）</td><td style="padding:4px 12px;font-family:monospace;">BY实际项目&组织手机toAI0608.xlsx</td><td style="padding:4px 12px;">→ RAW_PHONE</td></tr>
+<tr><td style="padding:4px 12px;">Base 已有项目（平板）</td><td style="padding:4px 12px;font-family:monospace;">BY实际项目&组织平板toAI0608.xlsx</td><td style="padding:4px 12px;">→ RAW_PAD</td></tr>
+<tr><td style="padding:4px 12px;">H2 新项目（手机）</td><td style="padding:4px 12px;font-family:monospace;">H2新工时.xlsx → 手机H2新项目</td><td style="padding:4px 12px;">→ RAW_PROJECT_PHONE</td></tr>
+<tr><td style="padding:4px 12px;">H2 新项目（平板）</td><td style="padding:4px 12px;font-family:monospace;">H2新工时.xlsx → 平板H2新工时</td><td style="padding:4px 12px;">→ RAW_PROJECT_PAD</td></tr>
+<tr><td style="padding:4px 12px;">H2 新增项目（手机）</td><td style="padding:4px 12px;font-family:monospace;">新增H2新工时.xlsx</td><td style="padding:4px 12px;">→ RAW_PROJECT_PHONE_EXTRA</td></tr>
+<tr><td style="padding:4px 12px;">花名册在职</td><td style="padding:4px 12px;font-family:monospace;">软工花名册20260531.xlsx</td><td style="padding:4px 12px;">→ ROSTER</td></tr>
+</table>
+</div>
+
+<script>
+const MONTHS = ['2026-01','2026-02','2026-03','2026-04','2026-05','2026-06','2026-07','2026-08','2026-09','2026-10','2026-11','2026-12'];
+const MLABEL = ['1月','2月','3月','4月','5月','6月','7月','8月','9月','10月','11月','12月'];
+const COLORS = ['#3b82f6','#10b981','#f59e0b','#8b5cf6','#ef4444','#06b6d4','#ec4899','#84cc16','#f97316','#6366f1','#14b8a6','#e11d48','#7c3aed','#0ea5e9','#f43f5e','#22c55e'];
+
+// 通讯侧整体 = 手机+平板 合并（来源：BY实际项目&组织 0608）
+const RAW_ALL = JSON.parse(`{
+"months":["2026-01","2026-02","2026-03","2026-04","2026-05","2026-06","2026-07","2026-08","2026-09","2026-10","2026-11","2026-12"],
+"monthLabels":["1月","2月","3月","4月","5月","6月","7月","8月","9月","10月","11月","12月"],
+"centers":{
+"软件质量保障二中心":{"total":3024.63,"avg":252.05,"monthly":[305.02,300.88,297.02,285.1,288.23,271.06,264.38,247.03,221.85,207.86,184.31,151.89],"depts":[{"name":"系统质量三部","months":[138.19,136.27,135.27,127.2,121.54,113.72,102.2,89.1,82.96,83.34,73.35,72.14],"total":1275.29,"avg":106.27},{"name":"系统质量二部","months":[94.5,94.53,93.26,93.47,92.75,82.67,92.21,90.81,77.72,63.77,58.22,41.96],"total":975.85,"avg":81.32},{"name":"专项与协议测试部","months":[57.54,56.11,55.14,52.63,61.49,61.19,53.65,47.58,43.73,43.87,37.81,26.24],"total":596.99,"avg":49.75},{"name":"北美测试部","months":[14.79,13.97,13.35,11.8,12.44,13.48,16.33,19.55,17.44,16.88,14.94,11.54],"total":176.51,"avg":14.71}]},
+"移动解决方案一中心":{"total":1765.56,"avg":147.13,"monthly":[162.22,160.21,152.66,150.22,152.89,179.1,163.72,163.35,155.09,125.85,106.77,93.48],"depts":[{"name":"系统技术部","months":[69.47,69.21,65.94,58.12,59.38,84.63,84.38,79.74,74.67,61.44,51.32,44.1],"total":802.38,"avg":66.87},{"name":"底软技术部","months":[70.34,69.0,64.9,64.43,65.94,70.86,55.64,60.49,58.3,44.89,40.0,34.53],"total":699.32,"avg":58.28},{"name":"移动产品项目一部","months":[22.41,22.0,21.82,27.68,27.57,23.61,23.7,23.13,22.13,19.53,15.45,14.85],"total":263.86,"avg":21.99}]},
+"移动解决方案二中心":{"total":1592.03,"avg":132.67,"monthly":[142.34,128.14,131.99,128.72,134.92,186.93,160.08,154.83,126.47,113.02,98.63,85.97],"depts":[{"name":"运营商应用开发部","months":[43.42,38.48,40.25,37.67,38.16,57.05,47.27,43.01,35.14,32.67,25.23,23.87],"total":462.21,"avg":38.52},{"name":"基础应用开发部","months":[34.66,29.53,30.16,30.01,32.83,49.28,44.11,43.06,40.79,37.69,34.12,28.03],"total":434.25,"avg":36.19},{"name":"协议技术部","months":[36.82,33.67,33.99,35.0,37.89,45.6,41.8,42.47,30.6,25.08,20.58,15.92],"total":399.4,"avg":33.28},{"name":"移动产品项目二部","months":[27.45,26.46,27.6,26.04,26.04,35.01,26.89,26.29,19.95,17.58,18.71,18.16],"total":296.17,"avg":24.68}]}
+},
+"grandTotal":6382.22,"grandAvg":531.85,
+"grandMonthly":{"2026-01":609.58,"2026-02":589.22,"2026-03":581.67,"2026-04":564.04,"2026-05":576.04,"2026-06":637.09,"2026-07":588.18,"2026-08":565.21,"2026-09":503.41,"2026-10":446.73,"2026-11":389.71,"2026-12":331.34}
+}`);
+
+// 手机（来源：BY实际项目&组织手机toAI0608）
+const RAW_PHONE = JSON.parse(`{
+"months":["2026-01","2026-02","2026-03","2026-04","2026-05","2026-06","2026-07","2026-08","2026-09","2026-10","2026-11","2026-12"],
+"centers":{
+"软件质量保障二中心":{"total":2033.12,"avg":169.43,"monthly":[219.77,219.67,212.62,178.34,186.2,173.61,179.75,181.83,160.67,124.8,109.09,86.77],"depts":[{"name":"系统质量二部","months":[80.33,79.62,67.05,61.32,62.63,60.81,72.2,77.65,63.03,47.74,45.45,29.11],"total":746.95,"avg":62.25},{"name":"系统质量三部","months":[81.04,84.82,93.66,75.28,69.42,61.61,58.77,51.96,50.81,37.72,31.24,34.08],"total":730.42,"avg":60.87},{"name":"专项与协议测试部","months":[46.39,43.81,40.43,33.02,44.29,41.65,37.16,36.68,32.7,26.4,21.35,15.29],"total":419.16,"avg":34.93},{"name":"北美测试部","months":[12.02,11.42,11.48,8.72,9.85,9.53,11.62,15.55,14.13,12.93,11.05,8.29],"total":136.59,"avg":11.38}]},
+"移动解决方案一中心":{"total":1045.46,"avg":87.12,"monthly":[108.31,105.11,89.54,87.26,94.95,105.97,104.41,96.54,83.7,64.34,54.19,51.15],"depts":[{"name":"系统技术部","months":[44.95,44.82,41.88,33.76,37.25,52.19,55.93,52.34,48.24,37.1,29.72,27.46],"total":505.63,"avg":42.14},{"name":"底软技术部","months":[46.74,43.15,30.48,33.31,37.36,35.47,28.96,24.61,18.21,12.5,13.52,13.18],"total":337.47,"avg":28.12},{"name":"移动产品项目一部","months":[16.63,17.14,17.18,20.2,20.34,18.31,19.52,19.59,17.25,14.74,10.95,10.51],"total":202.36,"avg":16.86}]},
+"移动解决方案二中心":{"total":1112.75,"avg":92.73,"monthly":[104.95,92.42,98.6,90.74,91.86,129.45,117.69,115.57,88.33,73.86,58.43,50.86],"depts":[{"name":"运营商应用开发部","months":[36.18,30.69,32.73,30.69,28.85,44.18,38.66,36.08,29.05,26.1,18.73,18.55],"total":370.5,"avg":30.88},{"name":"协议技术部","months":[31.3,29.15,30.46,27.31,28.38,36.56,35.67,37.26,26.15,19.59,14.14,9.67],"total":325.64,"avg":27.14},{"name":"基础应用开发部","months":[23.1,17.39,20.05,18.91,20.91,29.15,28.44,28.5,25.43,22.17,18.45,15.89],"total":268.39,"avg":22.37},{"name":"移动产品项目二部","months":[14.37,15.19,15.36,13.83,13.71,19.55,14.92,13.73,7.69,6.01,7.12,6.75],"total":148.22,"avg":12.35}]}
+},
+"grandTotal":4191.34,"grandAvg":349.28,
+"grandMonthly":{"2026-01":433.04,"2026-02":417.2,"2026-03":400.76,"2026-04":356.35,"2026-05":373.0,"2026-06":409.02,"2026-07":401.84,"2026-08":393.94,"2026-09":332.7,"2026-10":263.01,"2026-11":221.7,"2026-12":188.78}
+}`);
+
+// 平板（来源：BY实际项目&组织平板toAI0608）
+const RAW_PAD = JSON.parse(`{
+"months":["2026-01","2026-02","2026-03","2026-04","2026-05","2026-06","2026-07","2026-08","2026-09","2026-10","2026-11","2026-12"],
+"centers":{
+"软件质量保障二中心":{"total":991.51,"avg":82.63,"monthly":[85.25,81.21,84.4,106.75,102.04,97.45,84.63,65.2,61.18,83.06,75.22,65.12],"depts":[{"name":"系统质量三部","months":[57.14,51.45,41.61,51.92,52.12,52.11,43.43,37.14,32.15,45.62,42.12,38.06],"total":544.87,"avg":45.41},{"name":"系统质量二部","months":[14.18,14.91,26.21,32.14,30.12,21.86,20.0,13.16,14.68,16.02,12.77,12.85],"total":228.89,"avg":19.07},{"name":"专项与协议测试部","months":[11.15,12.3,14.71,19.61,17.21,19.54,16.49,10.9,11.03,17.47,16.45,10.96],"total":177.83,"avg":14.82},{"name":"北美测试部","months":[2.78,2.55,1.87,3.08,2.59,3.95,4.71,4.0,3.31,3.95,3.89,3.25],"total":39.92,"avg":3.33}]},
+"移动解决方案一中心":{"total":720.1,"avg":60.01,"monthly":[53.91,55.1,63.12,62.96,57.94,73.13,59.31,66.82,71.39,61.51,52.58,42.33],"depts":[{"name":"底软技术部","months":[23.6,25.85,34.42,31.12,28.58,35.4,26.69,35.88,40.09,32.39,26.48,21.35],"total":361.84,"avg":30.15},{"name":"系统技术部","months":[24.53,24.39,24.06,24.36,22.13,32.44,28.44,27.4,26.42,24.34,21.6,16.64],"total":296.76,"avg":24.73},{"name":"移动产品项目一部","months":[5.78,4.86,4.64,7.48,7.23,5.29,4.18,3.53,4.87,4.79,4.5,4.35],"total":61.5,"avg":5.13}]},
+"移动解决方案二中心":{"total":479.28,"avg":39.94,"monthly":[37.39,35.71,33.4,37.97,43.06,57.49,42.39,39.26,38.14,39.15,40.2,35.12],"depts":[{"name":"基础应用开发部","months":[11.56,12.14,10.11,11.1,11.92,20.13,15.67,14.56,15.35,15.52,15.67,12.13],"total":165.86,"avg":13.82},{"name":"移动产品项目二部","months":[13.08,11.27,12.24,12.2,12.33,15.46,11.98,12.57,12.25,11.58,11.6,11.41],"total":147.95,"avg":12.33},{"name":"运营商应用开发部","months":[7.23,7.78,7.52,6.98,9.31,12.86,8.61,6.92,6.09,6.57,6.5,5.32],"total":91.71,"avg":7.64},{"name":"协议技术部","months":[5.51,4.51,3.53,7.69,9.51,9.03,6.13,5.21,4.45,5.48,6.44,6.25],"total":73.76,"avg":6.15}]}
+},
+"grandTotal":2190.88,"grandAvg":182.57,
+"grandMonthly":{"2026-01":176.54,"2026-02":172.02,"2026-03":180.91,"2026-04":207.69,"2026-05":203.03,"2026-06":228.07,"2026-07":186.34,"2026-08":171.28,"2026-09":170.7,"2026-10":183.73,"2026-11":168.01,"2026-12":142.57}
+}`);
+
+// 手机 H2 新项目（来源：H2新工时 → 手机H2新项目）
+const RAW_PROJECT_PHONE = JSON.parse(`{"centers":{"移动解决方案一中心":{"total":150.5,"avg":12.54,"monthly":[0,0,0,0,0,0,5.1,28,34.6,31.4,32.7,18.7],"depts":[{"name":"底软技术部","months":[0,0,0,0,0,0,0.5,7.4,10.3,10.2,11.8,9],"total":49.2,"avg":4.1},{"name":"系统技术部","months":[0,0,0,0,0,0,4.6,20.6,24.3,21.2,20.9,9.7],"total":101.3,"avg":8.44}]},"移动解决方案二中心":{"total":144.3,"avg":12.03,"monthly":[0,0,0,0,0,0,4,14.3,29.7,34.5,38.1,23.7],"depts":[{"name":"移动产品项目二部","months":[0,0,0,0,0,0,0,0.8,3.2,3,6.6,6.1],"total":19.7,"avg":1.64},{"name":"协议技术部","months":[0,0,0,0,0,0,0,0.8,4.3,5.2,7.7,10.1],"total":28.1,"avg":2.34},{"name":"基础应用开发部","months":[0,0,0,0,0,0,4,11.7,18.7,22,19,3.3],"total":78.7,"avg":6.56},{"name":"运营商应用开发部","months":[0,0,0,0,0,0,0,1,3.5,4.3,4.8,4.2],"total":17.8,"avg":1.48}]},"软件质量保障二中心":{"total":192.5,"avg":16.04,"monthly":[0,0,0,0,0,0,0,0,10.3,54,71.8,56.4],"depts":[{"name":"系统质量三部","months":[0,0,0,0,0,0,0,0,9,43.6,62.4,41.5],"total":156.5,"avg":13.04},{"name":"专项与协议测试部","months":[0,0,0,0,0,0,0,0,1,10,8,14.7],"total":33.7,"avg":2.81},{"name":"系统质量二部","months":[0,0,0,0,0,0,0,0,0.3,0.4,1.4,0.2],"total":2.3,"avg":0.19},{"name":"北美测试部","months":[0,0,0,0,0,0,0,0,0,0,0,0],"total":0,"avg":0}]}},"grandTotal":487.3,"grandAvg":40.61,"grandMonthly":{"2026-01":0,"2026-02":0,"2026-03":0,"2026-04":0,"2026-05":0,"2026-06":0,"2026-07":9.1,"2026-08":42.3,"2026-09":74.6,"2026-10":119.9,"2026-11":142.6,"2026-12":98.8}}`);
+// 手机 H2 新增项目（来源：新增H2新工时 → Sheet1，均为手机）
+const RAW_PROJECT_PHONE_EXTRA = JSON.parse(`{"centers":{"移动解决方案一中心":{"total":101.2,"avg":8.43,"monthly":[0,0,0,0,0,0,9.9,15.6,20,21.4,21.3,13],"depts":[{"name":"底软技术部","months":[0,0,0,0,0,0,5.5,9.7,13.6,13.4,14.4,9],"total":65.6,"avg":5.47},{"name":"系统技术部","months":[0,0,0,0,0,0,4.4,5.9,6.4,8,6.9,4],"total":35.6,"avg":2.97}]},"移动解决方案二中心":{"total":79.6,"avg":6.63,"monthly":[0,0,0,0,0,0,3.9,9.6,12.7,16.8,18.6,18],"depts":[{"name":"协议技术部","months":[0,0,0,0,0,0,1.2,3.2,3.7,5.3,5.7,6.5],"total":25.6,"avg":2.13},{"name":"移动产品项目二部","months":[0,0,0,0,0,0,1.7,2.7,3.9,3.9,3.4,2],"total":17.6,"avg":1.47},{"name":"运营商应用开发部","months":[0,0,0,0,0,0,0.1,1.4,2.1,2.6,3.1,3.5],"total":12.8,"avg":1.07},{"name":"基础应用开发部","months":[0,0,0,0,0,0,0.9,2.3,3,5,6.4,6],"total":23.6,"avg":1.97}]},"软件质量保障二中心":{"total":153.8,"avg":12.82,"monthly":[0,0,0,0,0,0,0.5,18.5,44.7,43.6,37.5,9],"depts":[{"name":"系统质量三部","months":[0,0,0,0,0,0,0,10.8,30,29.5,26,7],"total":103.3,"avg":8.61},{"name":"系统质量二部","months":[0,0,0,0,0,0,0,0.2,1.2,1.1,0,0],"total":2.5,"avg":0.21},{"name":"专项与协议测试部","months":[0,0,0,0,0,0,0.5,7.5,13.5,13,11.5,2],"total":48,"avg":4}]}},"grandTotal":334.6,"grandAvg":27.88,"grandMonthly":{"2026-01":0,"2026-02":0,"2026-03":0,"2026-04":0,"2026-05":0,"2026-06":0,"2026-07":14.3,"2026-08":43.7,"2026-09":77.4,"2026-10":81.8,"2026-11":77.4,"2026-12":40}}`);
+
+// 平板 H2 新工时（来源：H2新工时 → 平板H2新工时）
+const RAW_PROJECT_PAD = JSON.parse(`{"centers":{"移动解决方案一中心":{"total":113.4,"avg":9.45,"monthly":[0,0,0,0,0,0,3.6,3.8,13.2,28.1,34.5,30.2],"depts":[{"name":"底软技术部","months":[0,0,0,0,0,0,2.4,1.4,9.6,22,24.5,18.8],"total":78.7,"avg":6.56},{"name":"系统技术部","months":[0,0,0,0,0,0,0,1.2,2.4,4.9,8.8,11.4],"total":28.7,"avg":2.39},{"name":"移动产品项目一部","months":[0,0,0,0,0,0,1.2,1.2,1.2,1.2,1.2,0],"total":6,"avg":0.5}]},"移动解决方案二中心":{"total":58.5,"avg":4.88,"monthly":[0,0,0,0,0,0,0.4,5,7.1,9.6,14.7,21.7],"depts":[{"name":"基础应用开发部","months":[0,0,0,0,0,0,0.4,1.6,1.8,1.8,3,8.3],"total":16.9,"avg":1.41},{"name":"运营商应用开发部","months":[0,0,0,0,0,0,0,0.8,0.8,0.8,1.2,3.2],"total":6.8,"avg":0.57},{"name":"协议技术部","months":[0,0,0,0,0,0,0,2,2.5,2.5,3.4,3.4],"total":13.8,"avg":1.15},{"name":"移动产品项目二部","months":[0,0,0,0,0,0,0,0.6,2,4.5,7.1,6.8],"total":21,"avg":1.75}]},"软件质量保障二中心":{"total":115.2,"avg":9.6,"monthly":[0,0,0,0,0,0,0,2,20.4,20.9,30.4,41.5],"depts":[{"name":"系统质量二部","months":[0,0,0,0,0,0,0,2,12,11,5.2,0.5],"total":30.7,"avg":2.56},{"name":"系统质量三部","months":[0,0,0,0,0,0,0,0,0.6,2.9,16.2,28.5],"total":48.2,"avg":4.02},{"name":"专项与协议测试部","months":[0,0,0,0,0,0,0,0,5.8,5,7.5,12.5],"total":30.8,"avg":2.57},{"name":"北美测试部","months":[0,0,0,0,0,0,0,0,2,2,1.5,0],"total":5.5,"avg":0.46}]}},"grandTotal":287.1,"grandAvg":23.93,"grandMonthly":{"2026-01":0,"2026-02":0,"2026-03":0,"2026-04":0,"2026-05":0,"2026-06":0,"2026-07":4,"2026-08":10.8,"2026-09":40.7,"2026-10":58.6,"2026-11":79.6,"2026-12":93.4}}`);
+
+// 花名册在职数据（排除实习生/外包实习生，来源：软工花名册20260531）
+const ROSTER = {
+  '移动解决方案一中心': {total:160, depts:{'底软技术部':70,'系统技术部':60,'移动产品项目一部':29}},
+  '移动解决方案二中心': {total:153, depts:{'基础应用开发部':43,'运营商应用开发部':40,'协议技术部':38,'移动产品项目二部':31}},
+  '软件质量保障二中心': {total:310, depts:{'系统质量三部':136,'系统质量二部':93,'专项与协议测试部':66,'北美测试部':14}}
+};
+
+// 当前激活的数据源和标签
+let D = RAW_ALL;
+let currentTab = 'all';
+
+// 深拷贝合并项目数据到基础数据上
+function deepMerge(base, proj){
+  // 深拷贝基础数据
+  let result = JSON.parse(JSON.stringify(base));
+  for(let [center, pc] of Object.entries(proj.centers)){
+    if(!result.centers[center]){
+      result.centers[center] = JSON.parse(JSON.stringify(pc));
+    } else {
+      let rc = result.centers[center];
+      // 合并中心月度
+      for(let i=0;i<12;i++) rc.monthly[i] = +(rc.monthly[i] + pc.monthly[i]).toFixed(2);
+      rc.total = +(rc.total + pc.total).toFixed(2);
+      rc.avg = +(rc.total / 12).toFixed(2);
+      // 合并部门
+      for(let pd of pc.depts){
+        let exist = rc.depts.find(d=>d.name===pd.name);
+        if(exist){
+          for(let i=0;i<12;i++) exist.months[i] = +(exist.months[i] + pd.months[i]).toFixed(2);
+          exist.total = +(exist.total + pd.total).toFixed(2);
+          exist.avg = +(exist.total / 12).toFixed(2);
+        } else {
+          rc.depts.push(JSON.parse(JSON.stringify(pd)));
+        }
+      }
+    }
+  }
+  // 合并grand
+  for(let i=0;i<12;i++){
+    let k = result.months[i];
+    result.grandMonthly[k] = +((result.grandMonthly[k]||0) + (proj.grandMonthly[k]||0)).toFixed(2);
+  }
+  result.grandTotal = +(result.grandTotal + proj.grandTotal).toFixed(2);
+  result.grandAvg = +(result.grandTotal / 12).toFixed(2);
+  return result;
+}
+
+// 为每个部门构建手机/平板月均映射表
+function buildBizAvgMap(raw){
+  let map = {};
+  for(let [center, cd] of Object.entries(raw.centers)){
+    for(let dept of cd.depts){
+      map[dept.name] = dept.avg;
+    }
+  }
+  return map;
+}
+// 动态获取含项目数据的映射
+function getPhoneAvgMap(){ return buildBizAvgMap(deepMerge(deepMerge(RAW_PHONE, RAW_PROJECT_PHONE), RAW_PROJECT_PHONE_EXTRA)); }
+function getPadAvgMap(){ return buildBizAvgMap(deepMerge(RAW_PAD, RAW_PROJECT_PAD)); }
+
+function switchTab(tab){
+  currentTab = tab;
+  if(tab === 'all') D = deepMerge(deepMerge(deepMerge(RAW_ALL, RAW_PROJECT_PHONE), RAW_PROJECT_PHONE_EXTRA), RAW_PROJECT_PAD);
+  else if(tab === 'phone') D = deepMerge(deepMerge(RAW_PHONE, RAW_PROJECT_PHONE), RAW_PROJECT_PHONE_EXTRA);
+  else D = deepMerge(RAW_PAD, RAW_PROJECT_PAD);
+  // Update tab buttons
+  document.querySelectorAll('.tab-btn').forEach(b=>{
+    b.classList.remove('active');
+    if(b.getAttribute('onclick').includes("'"+tab+"'")) b.classList.add('active');
+  });
+  // Destroy old charts
+  ['c1','c2','c5'].forEach(id=>{let el=document.getElementById(id);if(el)echarts.getInstanceByDom(el)?.dispose();});
+  renderAll();
+}
+
+function fmt(v){return v.toFixed(1);}
+function init(id){const el=document.getElementById(id);if(!el)return null;const c=echarts.init(el);window.addEventListener('resize',()=>c.resize());return c;}
+// 月份染色：0-4已过去(淡红), 5当月(蓝), 6+未来(蓝)
+const PAST_COLOR = '#fca5a5';   // 淡红：已实际发生
+const FUTURE_COLOR = '#60a5fa';  // 蓝：当月及未来滚动调整
+function monthStyle(idx){return idx<5?`style="color:${PAST_COLOR};font-weight:600"`:`style="color:${FUTURE_COLOR};font-weight:600"`;}
+function monthClass(idx){return idx<5?'month-past':'month-future';}
+
+function renderAll(){
+  renderSummary();
+  renderC1(); renderC2(); renderC4();
+  renderT1(); renderT2();
+  renderGapSummary(); renderC5(); renderT3();
+}
+
+function renderSummary(){
+  const G = D.grandTotal, GA = D.grandAvg;
+  const monthly = Object.values(D.grandMonthly);
+  const peak = Math.max(...monthly);
+  const low = Math.min(...monthly);
+  const peakM = MLABEL[monthly.indexOf(peak)];
+  const lowM = MLABEL[monthly.indexOf(low)];
+  // Update header subtitle based on current tab
+  const tabLabel = currentTab==='all'?'通讯侧整体（手机+平板）':currentTab==='phone'?'手机':'平板';
+  const tabSource = currentTab==='all'?'BY实际项目&组织0608 + H2新工时(含新增)':currentTab==='phone'?'BY实际项目&组织手机0608 + H2手机新项目(含新增)':'BY实际项目&组织平板0608 + H2平板新工时';
+  document.querySelector('.header .sub').innerHTML = `分析周期：2026年1月 - 12月（全年） &nbsp;|&nbsp; 📌 ${tabLabel} &nbsp;|&nbsp; 数据来源：${tabSource} &nbsp;|&nbsp; 单位：每月 mm 即为当月所需 HC；月均 mm 即为全年平均 HC`;
+  document.getElementById('summary').innerHTML = `
+    <div class="summary-card"><div class="label">📌 全年 mm 总量</div><div class="value">${fmt(G)}</div><div class="sub">mm（人·月）</div></div>
+    <div class="summary-card avg"><div class="label">📊 全年平均 HC</div><div class="value">${fmt(GA)}</div><div class="sub">月均 mm = 年均 HC</div></div>
+    <div class="summary-card peak"><div class="label">📈 峰值月份</div><div class="value">${fmt(peak)}</div><div class="sub">${peakM}（当月所需 HC 最高）</div></div>
+    <div class="summary-card low"><div class="label">📉 谷值月份</div><div class="value">${fmt(low)}</div><div class="sub">${lowM}（当月所需 HC 最低）</div></div>
+    <div class="summary-card"><div class="label">🏢 中心数量</div><div class="value">${Object.keys(D.centers).length}</div><div class="sub">个中心/部门</div></div>
+  `;
+}
+
+function renderC1(){
+  const c=init('c1');if(!c||!D)return;
+  const centers = Object.keys(D.centers);
+  c.setOption({
+    tooltip:{trigger:'axis'},
+    legend:{top:0,type:'scroll'},
+    xAxis:{type:'category',data:MLABEL},
+    yAxis:{type:'value',name:'HC / mm'},
+    series: centers.map((k,i)=>({name:k,type:'line',data:D.centers[k].monthly.map(v=>+v.toFixed(1)),smooth:true,lineStyle:{width:3,color:COLORS[i]},itemStyle:{color:COLORS[i]},symbol:'circle',symbolSize:7})),
+    grid:{top:45,right:20,bottom:25,left:55},
+  });
+}
+
+function renderC2(){
+  const c=init('c2');if(!c||!D)return;
+  const vals = Object.values(D.grandMonthly);
+  c.setOption({
+    tooltip:{trigger:'axis'},
+    xAxis:{type:'category',data:MLABEL},
+    yAxis:{type:'value',name:'HC / mm'},
+    series:[{
+      type:'bar',data:vals.map(v=>+v.toFixed(1)),itemStyle:{color:new echarts.graphic.LinearGradient(0,0,0,1,[{offset:0,color:'#3b82f6'},{offset:1,color:'#93c5fd'}])},
+      label:{show:true,position:'top',fontSize:13,fontWeight:'bold',formatter:p=>p.value.toFixed(1)},
+      barWidth:'50%',
+    }],
+    grid:{top:20,right:20,bottom:25,left:55},
+  });
+}
+
+function renderC4(){
+  const el=document.getElementById('c4');if(!el||!D)return;
+  // Collect all dept averages
+  let allDepts = [];
+  for(let [center,cd] of Object.entries(D.centers)){
+    for(let dept of cd.depts){
+      allDepts.push({name:dept.name, center, avg:dept.avg, total:dept.total});
+    }
+  }
+  allDepts.sort((a,b)=>b.avg-a.avg);
+  const top15 = allDepts.slice(0,15);
+  const maxV = top15[0].avg;
+  let html = '';
+  top15.forEach((d,i)=>{
+    const w = (d.avg/maxV*100).toFixed(0);
+    const color = i<3?'#ef4444':i<7?'#f59e0b':i<12?'#3b82f6':'#8b5cf6';
+    html += `<div class="rank-bar">
+      <span class="name">${d.name}</span>
+      <span class="bar" style="width:${w}%;background:${color}">${i+1}</span>
+      <span class="val">${fmt(d.avg)} 年均 HC</span>
+    </div>`;
+  });
+  el.innerHTML = html;
+}
+
+function renderT1(){
+  const el=document.getElementById('t1');if(!el||!D)return;
+  const showBiz = currentTab==='all';
+  let h='<thead><tr><th>中心</th>'+MLABEL.map((m,i)=>`<th ${monthStyle(i)}>${m}</th>`).join('')+'<th>全年合计</th><th>年均 HC</th>';
+  if(showBiz) h+='<th>📱手机年均 HC</th><th>📋平板年均 HC</th>';
+  h+='</tr></thead><tbody>';
+  const entries = Object.entries(D.centers).sort((a,b)=>b[1].total-a[1].total);
+  entries.forEach(([k,v],i)=>{
+    h+=`<tr><td style="font-weight:600">${k}</td>`;
+    v.monthly.forEach((m,i)=>h+=`<td ${monthStyle(i)}>${fmt(m)}</td>`);
+    h+=`<td style="font-weight:700">${fmt(v.total)}</td><td style="font-weight:700">${fmt(v.avg)}</td>`;
+    if(showBiz){
+      const phoneMerged = deepMerge(deepMerge(RAW_PHONE, RAW_PROJECT_PHONE), RAW_PROJECT_PHONE_EXTRA);
+      const padMerged = deepMerge(RAW_PAD, RAW_PROJECT_PAD);
+      const pc = phoneMerged.centers[k];
+      const pdc = padMerged.centers[k];
+      h+=`<td style="color:#6366f1">${pc?fmt(pc.avg):'-'}</td><td style="color:#06b6d4">${pdc?fmt(pdc.avg):'-'}</td>`;
+    }
+    h+=`</tr>`;
+  });
+  h+=`<tr class="total"><td>合计</td>`;
+  Object.values(D.grandMonthly).forEach((v,i)=>h+=`<td ${monthStyle(i)}>${fmt(v)}</td>`);
+  h+=`<td>${fmt(D.grandTotal)}</td><td>${fmt(D.grandAvg)}</td>`;
+  if(showBiz){
+    const phoneMerged = deepMerge(deepMerge(RAW_PHONE, RAW_PROJECT_PHONE), RAW_PROJECT_PHONE_EXTRA);
+    const padMerged = deepMerge(RAW_PAD, RAW_PROJECT_PAD);
+    h+=`<td style="color:#6366f1">${fmt(phoneMerged.grandAvg)}</td><td style="color:#06b6d4">${fmt(padMerged.grandAvg)}</td>`;
+  }
+  el.innerHTML=h+'</tbody>';
+}
+
+function renderT2(){
+  const el=document.getElementById('t2');if(!el||!D)return;
+  const showBiz = currentTab==='all';
+  let h='<thead><tr><th>中心</th><th>部门</th>'+MLABEL.map((m,i)=>`<th ${monthStyle(i)}>${m}</th>`).join('')+'<th>全年合计</th><th>年均 HC</th>';
+  if(showBiz) h+='<th>📱手机年均 HC</th><th>📋平板年均 HC</th>';
+  h+='</tr></thead><tbody>';
+  const cEntries = Object.entries(D.centers).sort((a,b)=>b[1].total-a[1].total);
+  cEntries.forEach(([center,cd])=>{
+    const depts = [...cd.depts].sort((a,b)=>b.avg-a.avg);
+    depts.forEach((d,i)=>{
+      const isFirst = i===0;
+      h+=`<tr style="${isFirst?'border-top:2px solid #e2e8f0;':''}">`;
+      h+=`<td style="font-weight:${isFirst?'700':'400'}">${isFirst?center:''}</td>`;
+      h+=`<td>${d.name}</td>`;
+      d.months.forEach((v,i)=>h+=`<td ${monthStyle(i)}>${fmt(v)}</td>`);
+      h+=`<td>${fmt(d.total)}</td><td style="font-weight:600">${fmt(d.avg)}</td>`;
+      if(showBiz){
+        const phoneMap = getPhoneAvgMap();
+        const padMap = getPadAvgMap();
+        const pAvg = phoneMap[d.name] || 0;
+        const pdAvg = padMap[d.name] || 0;
+        h+=`<td style="color:#6366f1">${fmt(pAvg)}</td><td style="color:#06b6d4">${fmt(pdAvg)}</td>`;
+      }
+      h+=`</tr>`;
+    });
+  });
+  h+=`<tr class="total"><td colspan="2">全部合计</td>`;
+  Object.values(D.grandMonthly).forEach((v,i)=>h+=`<td ${monthStyle(i)}>${fmt(v)}</td>`);
+  h+=`<td>${fmt(D.grandTotal)}</td><td>${fmt(D.grandAvg)}</td>`;
+  if(showBiz){
+    const phoneMerged = deepMerge(deepMerge(RAW_PHONE, RAW_PROJECT_PHONE), RAW_PROJECT_PHONE_EXTRA);
+    const padMerged = deepMerge(RAW_PAD, RAW_PROJECT_PAD);
+    h+=`<td style="color:#6366f1">${fmt(phoneMerged.grandAvg)}</td><td style="color:#06b6d4">${fmt(padMerged.grandAvg)}</td>`;
+  }
+  el.innerHTML=h+'</tbody>';
+}
+
+// ========== 人力缺口分析 ==========
+function getGapData(){
+  let result = [];
+  for(let [center, cd] of Object.entries(D.centers)){
+    let rosterCenter = ROSTER[center] || {total:0, depts:{}};
+    for(let dept of cd.depts){
+      let rosterCnt = rosterCenter.depts[dept.name] || 0;
+      let planAvg = dept.avg;
+      let planPeak = Math.max(...dept.months);
+      let peakMonthIdx = dept.months.indexOf(planPeak);
+      let gapAvg = planAvg - rosterCnt;     // 月均缺口
+      let gapPeak = planPeak - rosterCnt;   // 峰值缺口
+      result.push({center, dept:dept.name, roster:rosterCnt, planAvg, planPeak, peakMonthIdx, gapAvg, gapPeak});
+    }
+  }
+  return result;
+}
+
+function renderGapSummary(){
+  let gapData = getGapData();
+  let totalRoster = 0, totalPlan = 0, totalGapAvg = 0, totalPlanPeak = 0, totalGapPeak = 0;
+  let gapAvgDepts = 0, gapPeakDepts = 0;
+  for(let d of gapData){
+    totalRoster += d.roster;
+    totalPlan += d.planAvg;
+    totalPlanPeak += d.planPeak;
+    totalGapAvg += d.gapAvg;
+    totalGapPeak += d.gapPeak;
+    if(d.gapAvg > 0) gapAvgDepts++;
+    if(d.gapPeak > 0) gapPeakDepts++;
+  }
+  document.getElementById('gapSummary').innerHTML = `
+    <div class="summary-card"><div class="label">👥 三中心在职总人数</div><div class="value">${totalRoster}</div><div class="sub">排除实习生/外包实习生</div></div>
+    <div class="summary-card avg"><div class="label">📊 全年平均 HC</div><div class="value">${fmt(totalPlan)}</div><div class="sub">三中心月均 mm 合计</div></div>
+    <div class="summary-card peak"><div class="label">⚠️ 月均缺口 (年均 HC - 在职)</div><div class="value">${totalGapAvg>0?'+':''}${fmt(totalGapAvg)}</div><div class="sub">${gapAvgDepts}个部门有月均缺口</div></div>
+    <div class="summary-card" style="border-left-color:var(--red);"><div class="label">🔴 峰值缺口 (峰值 HC - 在职)</div><div class="value">${totalGapPeak>0?'+':''}${fmt(totalGapPeak)}</div><div class="sub">${gapPeakDepts}个部门需达峰</div></div>
+    <div class="summary-card"><div class="label">📈 三中心峰值合计</div><div class="value">${fmt(totalPlanPeak)}</div><div class="sub">HC</div></div>
+  `;
+}
+
+function renderC5(){
+  const c=init('c5');if(!c||!D)return;
+  let gapData = getGapData();
+  gapData.sort((a,b)=>b.gapPeak-a.gapPeak);
+  let depts = gapData.map(d=>d.dept);
+  let rosterVals = gapData.map(d=>d.roster);
+  let planPeakVals = gapData.map(d=>+d.planPeak.toFixed(1));
+  let gapPeakVals = gapData.map(d=>+d.gapPeak.toFixed(1));
+  
+  c.setOption({
+    tooltip:{trigger:'axis',axisPointer:{type:'shadow'}},
+    legend:{top:0},
+    xAxis:{type:'category',data:depts,axisLabel:{rotate:30,fontSize:10}},
+    yAxis:{type:'value',name:'HC'},
+    series:[
+      {name:'在职人数',type:'bar',data:rosterVals,itemStyle:{color:'#10b981'},barGap:'10%'},
+      {name:'Forecast 峰值 HC',type:'bar',data:planPeakVals,itemStyle:{color:'#f59e0b'}},
+      {name:'峰值缺口',type:'line',data:gapPeakVals,itemStyle:{color:'#ef4444'},symbol:'triangle',symbolSize:12,lineStyle:{width:3,type:'dashed'},label:{show:true,position:'top',fontSize:11,fontWeight:'bold',formatter:function(p){return p.value>0?'+'+p.value.toFixed(1):p.value.toFixed(1);}}}
+    ],
+    grid:{top:45,right:30,bottom:80,left:55},
+  });
+}
+
+function renderT3(){
+  const el=document.getElementById('t3');if(!el||!D)return;
+  const showBiz = currentTab==='all';
+  let gapData = getGapData();
+  gapData.sort((a,b)=>b.gapPeak-a.gapPeak);
+  let h='<thead><tr><th>中心</th><th>部门</th><th>在职</th><th>年均 HC</th>';
+  if(showBiz) h+='<th>📱手机年均 HC</th><th>📋平板年均 HC</th>';
+  h+='<th>月均缺口</th><th>峰值 HC</th><th>峰值月份</th><th>峰值缺口</th><th>状态</th></tr></thead><tbody>';
+  let lastCenter = '';
+  for(let d of gapData){
+    let showCenter = d.center !== lastCenter;
+    lastCenter = d.center;
+    // 以峰值缺口为判断依据
+    let status, tagClass;
+    if(d.gapPeak > 5){
+      status = '🔴 缺口较大'; tagClass = 'tag top';
+    } else if(d.gapPeak > 0){
+      status = '🟡 需关注'; tagClass = 'tag mid';
+    } else {
+      status = '🟢 充足'; tagClass = 'tag low';
+    }
+    let peakMonth = MLABEL[d.peakMonthIdx];
+    let signAvg = d.gapAvg > 0 ? '+' : '';
+    let signPeak = d.gapPeak > 0 ? '+' : '';
+    let phoneMap = getPhoneAvgMap();
+    let padMap = getPadAvgMap();
+    let phoneAvg = phoneMap[d.dept] || 0;
+    let padAvg = padMap[d.dept] || 0;
+    h+=`<tr style="${showCenter?'border-top:2px solid #e2e8f0;':''}">`;
+    h+=`<td style="font-weight:${showCenter?'700':'400'}">${showCenter?d.center:''}</td>`;
+    h+=`<td>${d.dept}</td>`;
+    h+=`<td style="font-weight:600">${d.roster}</td>`;
+    h+=`<td>${fmt(d.planAvg)}</td>`;
+    if(showBiz){
+      h+=`<td style="color:#6366f1">${fmt(phoneAvg)}</td><td style="color:#06b6d4">${fmt(padAvg)}</td>`;
+    }
+    h+=`<td style="color:${d.gapAvg>0?'#ef4444':'#10b981'}">${signAvg}${fmt(d.gapAvg)}</td>`;
+    h+=`<td style="font-weight:600;color:#f59e0b">${fmt(d.planPeak)}</td>`;
+    h+=`<td>${peakMonth}</td>`;
+    h+=`<td style="font-weight:700;color:${d.gapPeak>0?'#ef4444':'#10b981'}">${signPeak}${fmt(d.gapPeak)}</td>`;
+    h+=`<td><span class="${tagClass}">${status}</span></td></tr>`;
+  }
+  el.innerHTML=h+'</tbody>';
+}
+</script>
+</body>
+</html>
